@@ -64,6 +64,13 @@ export type Api<State, Action> = {
         Update<State, Action>,
         Input<State, Action>
     >;
+    readonly take: <T extends Action>(
+        predicate: (action: Action) => action is T
+    ) => Generator<
+        InternalPseudoAction,
+        Update<State, T>,
+        Input<State, Action>
+    >;
 };
 
 // Convenient wrapper. Gives type safe handling of the pseudo actions. The check inside is not strictly needed, but useful for development.
@@ -91,6 +98,18 @@ function* takeAny<State, Action>(): Generator<
     }
 }
 
+function* take<T extends Action, State, Action>(
+    predicate: (action: Action) => action is T
+): Generator<InternalPseudoAction, Update<State, T>, Input<State, Action>> {
+    for (;;) {
+        const input = yield* typedYield("take");
+        if (predicate(input.action)) {
+            // Just to satisfy the type checker. This could be a cast instead.
+            return { action: input.action, state: input.state };
+        }
+    }
+}
+
 export function createSagaInitAndUpdate<Init, State, Action>({
     init,
     createSaga,
@@ -113,6 +132,7 @@ export function createSagaInitAndUpdate<Init, State, Action>({
                 init(initInput),
                 createSaga({
                     takeAny,
+                    take,
                 })
             );
 
