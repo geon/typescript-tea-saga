@@ -68,3 +68,38 @@ test("Create a saga that sets the state.", () =>
             []
         );
     }));
+
+test("Create a saga that takes an action before setting the state.", () =>
+    new Promise<void>((done) => {
+        type Init = undefined;
+        type State = number;
+        type Action = string;
+        const sagaInitAndUpdate = createSagaInitAndUpdate<Init, State, Action>({
+            init: () => 0,
+            createSaga: function* ({ takeAny }) {
+                for (;;) {
+                    yield* takeAny();
+                    yield [1];
+                }
+            },
+        });
+
+        Program.run(
+            {
+                ...sagaInitAndUpdate,
+                view: (props) => props,
+            },
+            undefined,
+            vi
+                .fn<Render<State, Action>>()
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual(0);
+                    dispatch("");
+                })
+                .mockImplementationOnce(({ state }): void => {
+                    expect(state).toEqual(1);
+                    done();
+                }),
+            []
+        );
+    }));
