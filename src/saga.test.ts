@@ -340,3 +340,35 @@ test("Create an ok/cancel saga.", async () => {
         );
     });
 });
+
+test("Create a saga with getState.", () =>
+    new Promise<void>((done) => {
+        type Init = undefined;
+        type State = number;
+        type Action = string;
+        const sagaInitAndUpdate = createSagaInitAndUpdate<Init, State, Action>({
+            init: () => 0,
+            createSaga: function* ({ forever, getState, takeAny }) {
+                return yield* forever(function* () {
+                    const state = yield* getState();
+                    yield [state + 1];
+                    yield* takeAny();
+                });
+            },
+        });
+
+        Program.run(
+            {
+                ...sagaInitAndUpdate,
+                view: (props) => props,
+            },
+            undefined,
+            vi
+                .fn<Render<State, Action>>()
+                .mockImplementationOnce(({ state }): void => {
+                    expect(state).toEqual(1);
+                    done();
+                }),
+            []
+        );
+    }));

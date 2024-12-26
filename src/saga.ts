@@ -8,6 +8,7 @@ type Input<State, Action> =
     | ({
           readonly type: "take";
       } & Update<State, Action>)
+    | { readonly type: "getState"; readonly state: State }
     | undefined;
 type InternalPseudoAction = NonNullable<Input<unknown, unknown>>["type"];
 type Output<State, Action> = readonly [State, Cmd<Action>?];
@@ -52,6 +53,12 @@ function* createSagaRunner<State, Action>(
                 break;
             }
 
+            case "getState": {
+                // Answer the request.
+                output = saga.next({ type: output, state }).value;
+                break;
+            }
+
             default: {
                 // Update state.
                 state = output[0];
@@ -80,6 +87,11 @@ export type Api<State, Action> = {
     readonly forever: (
         finiteSaga: () => FiniteSaga<State, Action>
     ) => InfiniteSaga<State, Action>;
+    readonly getState: () => Generator<
+        InternalPseudoAction,
+        State,
+        Input<State, Action>
+    >;
 };
 
 // Convenient wrapper. Gives type safe handling of the pseudo actions. The check inside is not strictly needed, but useful for development.
@@ -128,6 +140,14 @@ function* forever<State, Action>(
     }
 }
 
+function* getState<State, Action>(): Generator<
+    InternalPseudoAction,
+    State,
+    Input<State, Action>
+> {
+    return (yield* typedYield("getState")).state;
+}
+
 export function createSagaInitAndUpdate<Init, State, Action>({
     init,
     createSaga,
@@ -152,6 +172,7 @@ export function createSagaInitAndUpdate<Init, State, Action>({
                     takeAny,
                     take,
                     forever,
+                    getState,
                 })
             );
 
