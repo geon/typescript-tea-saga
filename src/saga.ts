@@ -16,6 +16,12 @@ type InfiniteSaga<State, Action> = Generator<
     never,
     Input<State, Action>
 >;
+type FiniteSaga<State, Action> = Generator<
+    Output<State, Action> | InternalPseudoAction,
+    // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+    undefined | void,
+    Input<State, Action>
+>;
 
 type SagaRunner<State, Action> = Generator<
     Output<State, Action>,
@@ -71,6 +77,9 @@ export type Api<State, Action> = {
         Update<State, T>,
         Input<State, Action>
     >;
+    readonly forever: (
+        finiteSaga: () => FiniteSaga<State, Action>
+    ) => InfiniteSaga<State, Action>;
 };
 
 // Convenient wrapper. Gives type safe handling of the pseudo actions. The check inside is not strictly needed, but useful for development.
@@ -110,6 +119,15 @@ function* take<T extends Action, State, Action>(
     }
 }
 
+function* forever<State, Action>(
+    finiteSaga: () => FiniteSaga<State, Action>
+): InfiniteSaga<State, Action> {
+    // Run the finite saga repeatedly.
+    for (;;) {
+        yield* finiteSaga();
+    }
+}
+
 export function createSagaInitAndUpdate<Init, State, Action>({
     init,
     createSaga,
@@ -133,6 +151,7 @@ export function createSagaInitAndUpdate<Init, State, Action>({
                 createSaga({
                     takeAny,
                     take,
+                    forever,
                 })
             );
 

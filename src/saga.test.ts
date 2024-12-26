@@ -138,3 +138,33 @@ test("Create a saga that takes a specific action before setting the state.", () 
             []
         );
     }));
+
+test("Create a repeating finite saga.", () =>
+    new Promise<void>((done) => {
+        type Init = undefined;
+        type State = number;
+        type Action = string;
+        const sagaInitAndUpdate = createSagaInitAndUpdate<Init, State, Action>({
+            init: () => 0,
+            createSaga: function* ({ forever, takeAny }) {
+                return yield* forever(function* () {
+                    yield* takeAny();
+                });
+            },
+        });
+
+        Program.run(
+            {
+                ...sagaInitAndUpdate,
+                view: (props) => props,
+            },
+            undefined,
+            vi
+                .fn<Render<State, Action>>()
+                .mockImplementationOnce(({ state }): void => {
+                    expect(state).toEqual(0);
+                    done();
+                }),
+            []
+        );
+    }));
