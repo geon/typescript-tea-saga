@@ -168,3 +168,42 @@ test("Create a repeating finite saga.", () =>
             []
         );
     }));
+
+test("Create a counting saga.", () =>
+    new Promise<void>((done) => {
+        type Init = undefined;
+        type State = number;
+        type Action = string;
+        const sagaInitAndUpdate = createSagaInitAndUpdate<Init, State, Action>({
+            init: () => 0,
+            createSaga: function* ({ forever, takeAny }) {
+                return yield* forever(function* () {
+                    const { state } = yield* takeAny();
+                    yield [state + 1];
+                });
+            },
+        });
+
+        Program.run(
+            {
+                ...sagaInitAndUpdate,
+                view: (props) => props,
+            },
+            undefined,
+            vi
+                .fn<Render<State, Action>>()
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual(0);
+                    dispatch("");
+                })
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual(1);
+                    dispatch("");
+                })
+                .mockImplementationOnce(({ state }): void => {
+                    expect(state).toEqual(2);
+                    done();
+                }),
+            []
+        );
+    }));
