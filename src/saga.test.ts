@@ -1,6 +1,6 @@
 import { expect, test, vi } from "vitest";
 import { Program } from "@typescript-tea/core";
-import { createSagaInitAndUpdate } from "./saga";
+import { Api, createSagaInitAndUpdate } from "./saga";
 
 // The type of the Program.run render function.
 type Render<State, Action> = (
@@ -253,3 +253,90 @@ test("Create a incrementing and decrementing saga.", () =>
             []
         );
     }));
+
+test("Create an ok/cancel saga.", async () => {
+    type Init = undefined;
+    type State = number;
+    type Action = string;
+
+    function* createSaga({ forever, take }: Api<State, Action>) {
+        return yield* forever(function* () {
+            const { state } = yield* take(
+                (action) => action === "open increment dialog"
+            );
+
+            yield [123];
+
+            const { action } = yield* take(
+                (action): action is "ok" | "cancel" =>
+                    action === "ok" || action === "cancel"
+            );
+            if (action === "cancel") {
+                yield [state];
+                return;
+            }
+
+            yield [state + 1];
+        });
+    }
+
+    await new Promise<void>((done) => {
+        const sagaInitAndUpdate = createSagaInitAndUpdate<Init, State, Action>({
+            init: () => 0,
+            createSaga,
+        });
+
+        Program.run(
+            {
+                ...sagaInitAndUpdate,
+                view: (props) => props,
+            },
+            undefined,
+            vi
+                .fn<Render<State, Action>>()
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual(0);
+                    dispatch("open increment dialog");
+                })
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual(123);
+                    dispatch("cancel");
+                })
+                .mockImplementationOnce(({ state }): void => {
+                    expect(state).toEqual(0);
+                    done();
+                }),
+            []
+        );
+    });
+
+    await new Promise<void>((done) => {
+        const sagaInitAndUpdate = createSagaInitAndUpdate<Init, State, Action>({
+            init: () => 0,
+            createSaga,
+        });
+
+        Program.run(
+            {
+                ...sagaInitAndUpdate,
+                view: (props) => props,
+            },
+            undefined,
+            vi
+                .fn<Render<State, Action>>()
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual(0);
+                    dispatch("open increment dialog");
+                })
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual(123);
+                    dispatch("ok");
+                })
+                .mockImplementationOnce(({ state }): void => {
+                    expect(state).toEqual(1);
+                    done();
+                }),
+            []
+        );
+    });
+});
