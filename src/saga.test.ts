@@ -207,3 +207,49 @@ test("Create a counting saga.", () =>
             []
         );
     }));
+
+test("Create a incrementing and decrementing saga.", () =>
+    new Promise<void>((done) => {
+        type Init = undefined;
+        type State = number;
+        type Action = string;
+        const sagaInitAndUpdate = createSagaInitAndUpdate<Init, State, Action>({
+            init: () => 0,
+            createSaga: function* ({ forever, take }) {
+                return yield* forever(function* () {
+                    const { state, action } = yield* take(
+                        (action) =>
+                            action === "increment" || action == "decrement"
+                    );
+                    const change = {
+                        increment: 1,
+                        decrement: -1,
+                    };
+                    yield [state + change[action]];
+                });
+            },
+        });
+
+        Program.run(
+            {
+                ...sagaInitAndUpdate,
+                view: (props) => props,
+            },
+            undefined,
+            vi
+                .fn<Render<State, Action>>()
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual(0);
+                    dispatch("increment");
+                })
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual(1);
+                    dispatch("decrement");
+                })
+                .mockImplementationOnce(({ state }): void => {
+                    expect(state).toEqual(0);
+                    done();
+                }),
+            []
+        );
+    }));
