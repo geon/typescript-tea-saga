@@ -12,12 +12,12 @@ type Input<State, Action> =
     | undefined;
 type InternalPseudoAction = NonNullable<Input<unknown, unknown>>["type"];
 type Output<State, Action> = readonly [State, Cmd<Action>?];
-type InfiniteSaga<State, Action> = Generator<
+export type InfiniteSaga<State, Action> = Generator<
     Output<State, Action> | InternalPseudoAction,
     never,
     Input<State, Action>
 >;
-type FiniteSaga<State, Action> = Generator<
+export type FiniteSaga<State, Action> = Generator<
     Output<State, Action> | InternalPseudoAction,
     // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
     undefined | void,
@@ -171,24 +171,28 @@ function* parallel<State, Action>(
 > {
     const subSagaRunners = [];
     {
+        const cmds = [];
         let state = yield* getState();
         for (const createSubSaga of createSubSagas) {
             const subSagaRunner = createSagaRunner(state, createSubSaga());
             subSagaRunners.push(subSagaRunner);
 
-            const [newState] = subSagaRunner.next().value;
+            const [newState, cmd] = subSagaRunner.next().value;
             state = newState;
+            cmds.push(cmd);
         }
-        yield [state];
+        yield [state, Cmd.batch(cmds)];
     }
 
     for (;;) {
+        const cmds = [];
         let { state, action } = yield* takeAny<State, Action>();
         for (const subSagaRunner of subSagaRunners) {
-            const [newState] = subSagaRunner.next({ state, action }).value;
+            const [newState, cmd] = subSagaRunner.next({ state, action }).value;
             state = newState;
+            cmds.push(cmd);
         }
-        yield [state];
+        yield [state, Cmd.batch(cmds)];
     }
 }
 
