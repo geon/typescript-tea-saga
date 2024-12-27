@@ -106,6 +106,18 @@ export type Api<State, Action> = {
         never,
         Input<State, Action>
     >;
+    readonly resumeAfterCmd: <Payload>(
+        createCommand: (
+            createAction: (payload: Payload) => {
+                readonly tag: symbol;
+                readonly payload: Payload;
+            }
+        ) => Cmd<Action>
+    ) => Generator<
+        Output<State, Action> | InternalPseudoAction,
+        Payload,
+        Input<State, Action>
+    >;
 };
 
 // Convenient wrapper. Gives type safe handling of the pseudo actions. The check inside is not strictly needed, but useful for development.
@@ -196,6 +208,31 @@ function* parallel<State, Action>(
     }
 }
 
+function* resumeAfterCmd<Payload, State, Action>(
+    createCommand: (
+        createAction: (payload: Payload) => {
+            readonly tag: symbol;
+            readonly payload: Payload;
+        }
+    ) => Cmd<Action>
+): Generator<
+    Output<State, Action> | InternalPseudoAction,
+    Payload,
+    Input<State, Action>
+> {
+    const tag = Symbol("createResume");
+    const state = yield* getState();
+    yield [state, createCommand((payload) => ({ tag, payload }))];
+    return (yield* take(
+        (
+            action: unknown
+        ): action is {
+            readonly tag: symbol;
+            readonly payload: Payload;
+        } => action instanceof Object && "tag" in action && action?.tag === tag
+    )).action.payload;
+}
+
 export function createSagaInitAndUpdate<Init, State, Action>({
     init,
     createSaga,
@@ -222,6 +259,7 @@ export function createSagaInitAndUpdate<Init, State, Action>({
                     forever,
                     getState,
                     parallel,
+                    resumeAfterCmd,
                 })
             );
 

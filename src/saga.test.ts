@@ -628,3 +628,57 @@ test("Create a saga issuing cmds in parallel after action.", () =>
             [NullEffectManager.createEffectManager<Action>() as any]
         );
     }));
+
+test("Create a saga issuing a cmd and resuming on its response.", () =>
+    new Promise<void>((done) => {
+        type Init = undefined;
+        type State = number;
+        type Action = string;
+
+        type FakeNetworkResponse = {
+            apiVersion: string;
+            fakeData: { magicNumber: number };
+        };
+
+        const sagaInitAndUpdate = createSagaInitAndUpdate<Init, State, Action>({
+            init: () => 0,
+            createSaga: function* ({ forever, take, resumeAfterCmd }) {
+                return yield* forever(function* () {
+                    yield* take(
+                        (action) => action === "do fake network request"
+                    );
+
+                    const response = yield* resumeAfterCmd<FakeNetworkResponse>(
+                        (createAction) =>
+                            NullEffectManager.echo(
+                                createAction({
+                                    apiVersion: "1.2.3",
+                                    fakeData: { magicNumber: 1 },
+                                })
+                            )
+                    );
+
+                    yield [response.fakeData.magicNumber];
+                });
+            },
+        });
+
+        Program.run(
+            {
+                ...sagaInitAndUpdate,
+                view: (props) => props,
+            },
+            undefined,
+            vi
+                .fn<Render<State, Action>>()
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual(0);
+                    dispatch("do fake network request");
+                })
+                .mockImplementationOnce(({ state }): void => {
+                    expect(state).toEqual(1);
+                    done();
+                }),
+            [NullEffectManager.createEffectManager<Action>() as any]
+        );
+    }));
