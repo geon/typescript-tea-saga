@@ -92,6 +92,13 @@ export type Api<State, Action> = {
         State,
         Input<State, Action>
     >;
+    readonly parallel: (
+        createSubSagas: ReadonlyArray<() => InfiniteSaga<State, Action>>
+    ) => Generator<
+        Output<State, Action> | InternalPseudoAction,
+        never,
+        Input<State, Action>
+    >;
 };
 
 // Convenient wrapper. Gives type safe handling of the pseudo actions. The check inside is not strictly needed, but useful for development.
@@ -148,6 +155,36 @@ function* getState<State, Action>(): Generator<
     return (yield* typedYield("getState")).state;
 }
 
+function* parallel<State, Action>(
+    createSubSagas: ReadonlyArray<() => InfiniteSaga<State, Action>>
+): Generator<
+    Output<State, Action> | InternalPseudoAction,
+    never,
+    Input<State, Action>
+> {
+    const subSagaRunners = [];
+    {
+        let state = yield* getState();
+        for (const createSubSaga of createSubSagas) {
+            const subSagaRunner = createSagaRunner(state, createSubSaga());
+            subSagaRunners.push(subSagaRunner);
+
+            const [newState] = subSagaRunner.next().value;
+            state = newState;
+        }
+        yield [state];
+    }
+
+    for (;;) {
+        let { state, action } = yield* takeAny<State, Action>();
+        for (const subSagaRunner of subSagaRunners) {
+            const [newState] = subSagaRunner.next({ state, action }).value;
+            state = newState;
+        }
+        yield [state];
+    }
+}
+
 export function createSagaInitAndUpdate<Init, State, Action>({
     init,
     createSaga,
@@ -173,6 +210,7 @@ export function createSagaInitAndUpdate<Init, State, Action>({
                     take,
                     forever,
                     getState,
+                    parallel,
                 })
             );
 

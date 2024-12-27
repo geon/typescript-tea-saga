@@ -372,3 +372,67 @@ test("Create a saga with getState.", () =>
             []
         );
     }));
+
+test("Create a saga with parallel sub-sagas.", () =>
+    new Promise<void>((done) => {
+        type Init = undefined;
+        type State = {
+            readonly a: number;
+            readonly b: number;
+        };
+        type Action = string;
+        const sagaInitAndUpdate = createSagaInitAndUpdate<Init, State, Action>({
+            init: () => ({ a: 0, b: 0 }),
+            createSaga: function* ({ forever, parallel, take }) {
+                return yield* parallel([
+                    function* () {
+                        return yield* forever(function* () {
+                            const { state } = yield* take(
+                                (action) => action === "a"
+                            );
+                            yield [{ ...state, a: state.a + 1 }];
+                        });
+                    },
+                    function* () {
+                        return yield* forever(function* () {
+                            const { state } = yield* take(
+                                (action) => action === "b"
+                            );
+                            yield [{ ...state, b: state.b + 1 }];
+                        });
+                    },
+                ]);
+            },
+        });
+
+        Program.run(
+            {
+                ...sagaInitAndUpdate,
+                view: (props) => props,
+            },
+            undefined,
+            vi
+                .fn<Render<State, Action>>()
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual({ a: 0, b: 0 });
+                    dispatch("a");
+                })
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual({ a: 1, b: 0 });
+                    dispatch("b");
+                })
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual({ a: 1, b: 1 });
+                    dispatch("a");
+                })
+                .mockImplementationOnce(({ state, dispatch }): void => {
+                    expect(state).toEqual({ a: 2, b: 1 });
+                    dispatch("b");
+                })
+                .mockImplementationOnce(({ state }): void => {
+                    expect(state).toEqual({ a: 2, b: 2 });
+                    done();
+                }),
+            []
+        );
+    }));
