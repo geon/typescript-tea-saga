@@ -37,6 +37,7 @@ function* createSagaRunner<State, Action>(
     initialState: State,
     saga: InfiniteSaga<State, Action>
 ): SagaRunner<State, Action> {
+    let cmds: Array<NonNullable<Output<State, Action>[1]>> = [];
     let state = initialState;
     // No value can be given to .next at the first invocation.
     let output = saga.next().value;
@@ -44,9 +45,12 @@ function* createSagaRunner<State, Action>(
         switch (output) {
             case "take": {
                 // The saga requests an action. Get it from the program update.
-                const update = yield [state];
+                const update = yield [state, Cmd.batch(cmds)];
                 const action = update.action;
                 state = update.state;
+
+                // The old commands were consumed by the yield.
+                cmds = [];
 
                 // Answer the request.
                 output = saga.next({ type: output, state, action }).value;
@@ -60,8 +64,11 @@ function* createSagaRunner<State, Action>(
             }
 
             default: {
-                // Update state.
+                // Update state and collect cmds.
                 state = output[0];
+                if (output[1]) {
+                    cmds.push(output[1]);
+                }
 
                 // Nothing to answer with.
                 output = saga.next().value;

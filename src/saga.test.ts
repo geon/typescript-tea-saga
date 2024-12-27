@@ -1,6 +1,7 @@
 import { expect, test, vi } from "vitest";
 import { Program } from "@typescript-tea/core";
 import { Api, createSagaInitAndUpdate } from "./saga";
+import * as NullEffectManager from "./test-utilities/null-effect-manager";
 
 // The type of the Program.run render function.
 type Render<State, Action> = (
@@ -434,5 +435,43 @@ test("Create a saga with parallel sub-sagas.", () =>
                     done();
                 }),
             []
+        );
+    }));
+
+test("Create a saga issuing cmds in init.", () =>
+    new Promise<void>((done) => {
+        type Init = undefined;
+        type State = number;
+        type Action = string;
+        const sagaInitAndUpdate = createSagaInitAndUpdate<Init, State, Action>({
+            init: () => 0,
+            createSaga: function* ({ getState, forever, take }) {
+                yield [yield* getState(), NullEffectManager.echo("from cmd")];
+                yield [yield* getState(), NullEffectManager.echo("from cmd")];
+                return yield* forever(function* () {
+                    const { state } = yield* take(
+                        (action) => action === "from cmd"
+                    );
+                    yield [state + 1];
+                });
+            },
+        });
+
+        Program.run(
+            {
+                ...sagaInitAndUpdate,
+                view: (props) => props,
+            },
+            undefined,
+            vi
+                .fn<Render<State, Action>>()
+                .mockImplementationOnce(({ state }): void => {
+                    expect(state).toEqual(1);
+                })
+                .mockImplementationOnce(({ state }): void => {
+                    expect(state).toEqual(2);
+                    done();
+                }),
+            [NullEffectManager.createEffectManager<Action>() as any]
         );
     }));
