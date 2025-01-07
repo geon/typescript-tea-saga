@@ -244,7 +244,8 @@ export function createSagaInitAndUpdate<Init, State, Action>({
      * will crash with an infinite loop.
      */
     readonly createSaga: (
-        api: Api<State, Action>
+        api: Api<State, Action>,
+        initInput: Init
     ) => InfiniteSaga<State, Action>;
 }): Pick<Program<Init, State, Action, unknown>, "init" | "update"> {
     let sagaRunner: SagaRunner<State, Action>;
@@ -253,14 +254,17 @@ export function createSagaInitAndUpdate<Init, State, Action>({
         init: (initInput) => {
             sagaRunner = createSagaRunner(
                 init(initInput),
-                createSaga({
-                    takeAny,
-                    take,
-                    forever,
-                    getState,
-                    parallel,
-                    resumeAfterCmd,
-                })
+                createSaga(
+                    {
+                        takeAny,
+                        take,
+                        forever,
+                        getState,
+                        parallel,
+                        resumeAfterCmd,
+                    },
+                    initInput
+                )
             );
 
             // The saga might need to run at once, but update isn't called until the first action.

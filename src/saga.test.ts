@@ -682,3 +682,34 @@ test("Create a saga issuing a cmd and resuming on its response.", () =>
             [NullEffectManager.createEffectManager<Action>() as any]
         );
     }));
+
+test("Create a saga using the init data.", () =>
+    new Promise<void>((done) => {
+        type Init = "from-init-data";
+        type State = "from-init-data" | "initial-state";
+        type Action = "from-init-data";
+        const sagaInitAndUpdate = createSagaInitAndUpdate<Init, State, Action>({
+            init: () => "initial-state",
+            createSaga: function* ({ takeAny }, init) {
+                yield [init];
+                for (;;) {
+                    yield* takeAny();
+                }
+            },
+        });
+
+        Program.run(
+            {
+                ...sagaInitAndUpdate,
+                view: (props) => props,
+            },
+            "from-init-data",
+            vi
+                .fn<Render<State, Action>>()
+                .mockImplementationOnce(({ state }): void => {
+                    expect(state).toEqual("from-init-data");
+                    done();
+                }),
+            []
+        );
+    }));
