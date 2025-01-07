@@ -237,7 +237,7 @@ export function createSagaInitAndUpdate<Init, State, Action>({
     init,
     createSaga,
 }: {
-    readonly init: (init: Init) => State;
+    readonly init: (initInput: Init) => State;
     /**
      * A saga must loop forever or throw, never return. That is type checked.
      * A saga must at some point yield* a Api.takeAny() or Api.take(...), or it
