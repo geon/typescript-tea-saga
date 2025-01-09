@@ -269,8 +269,7 @@ test("Create an ok/cancel saga.", async () => {
             yield [123];
 
             const { action } = yield* take(
-                (action): action is "ok" | "cancel" =>
-                    action === "ok" || action === "cancel"
+                (action) => action === "ok" || action === "cancel"
             );
             if (action === "cancel") {
                 yield [state];
