@@ -47,6 +47,104 @@ export const { init, update } = createSagaInitAndUpdate<Init, State, Action>({
 });
 ```
 
+## Dialog Example
+
+Complex user interactions like dialogs can be abstracted as a single function call with a return value.
+
+```ts
+type Init = void;
+export type State = {
+    readonly counter: number;
+    readonly dialog: number | undefined;
+};
+export type Action =
+    | "openIncrementDialog"
+    | "increment"
+    | "closeIncrementDialogOk"
+    | "closeIncrementDialogCancel";
+
+export const { init, update } = createSagaInitAndUpdate<Init, State, Action>({
+    init: () => ({ counter: 0, dialog: undefined }),
+    createSaga: function* (api) {
+        return yield* api.forever(function* () {
+            yield* api.take(
+                (action) => action === "openIncrementDialog"
+            );
+
+            const dialogResult = yield* openIncrementDialog(api);
+
+            if (dialogResult.type === "cancel") {
+                return;
+            }
+
+            const state = yield* api.getState();
+            yield [
+                {
+                    ...state,
+                    counter: state.counter + dialogResult.amount,
+                },
+            ];
+        });
+    },
+});
+
+function* openIncrementDialog(api: Api<State, Action>): FiniteSaga<
+    State,
+    Action,
+    | {
+            readonly type: "cancel";
+        }
+    | {
+            readonly type: "ok";
+            readonly amount: number;
+        }
+> {
+    // Initialize the dialog state.
+    yield [{ ...(yield* api.getState()), dialog: 0 }];
+
+    for (;;) {
+        const { action } = yield* api.take(
+            (action) =>
+                action === "increment" ||
+                action === "closeIncrementDialogOk" ||
+                action === "closeIncrementDialogCancel"
+        );
+
+        if (action === "increment") {
+            // Increment the dialog state.
+            const state = yield* api.getState();
+            if (state.dialog === undefined) {
+                throw new Error("Dialog state not set.");
+            }
+            yield [{ ...state, dialog: state.dialog + 1 }];
+            continue;
+        }
+
+        // Remove the dialog state.
+        const state = yield* api.getState();
+        yield [{ ...state, dialog: undefined }];
+
+        // Return the result.
+        switch (action) {
+            case "closeIncrementDialogOk": {
+                if (state.dialog === undefined) {
+                    throw new Error("Dialog state not set.");
+                }
+                return { type: "ok", amount: state.dialog };
+            }
+
+            case "closeIncrementDialogCancel": {
+                return { type: "cancel" };
+            }
+
+            default: {
+                return action satisfies never;
+            }
+        }
+    }
+}
+```
+
 ## Data Loading Example
 
 This is the random cat gif example from [the http effect manager](https://github.com/typescript-tea/http), but rewritten as a saga. It would be trivial to make it fetch multiple images, or first fetch the api_key from somewhere else.
