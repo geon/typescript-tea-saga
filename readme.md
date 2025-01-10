@@ -120,7 +120,7 @@ const getState: () => Generator<
 >;
 ```
 
-Get the current state. Beware that the state might change inside a (generator) function you call, or behind your back if you use concurrent sagas with `api.parallel`. In that case you must get a fresh state to update before you wield it, or you might unintentionally overwrite parts of it.
+Get the current state. Beware that the state might change inside a (generator) function you call, or behind your back if you use concurrent sagas with `api.parallel`. In that case you must get a fresh state to update before you yield it, or you might unintentionally overwrite parts of it.
 
 ```ts
 const parallel: (
