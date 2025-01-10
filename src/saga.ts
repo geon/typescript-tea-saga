@@ -17,10 +17,9 @@ export type InfiniteSaga<State, Action> = Generator<
     never,
     Input<State, Action>
 >;
-export type FiniteSaga<State, Action> = Generator<
+export type FiniteSaga<State, Action, Return> = Generator<
     Output<State, Action> | InternalPseudoAction,
-    // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
-    undefined | void,
+    Return,
     Input<State, Action>
 >;
 
@@ -92,7 +91,7 @@ export type Api<State, Action> = {
         Input<State, Action>
     >;
     readonly forever: (
-        finiteSaga: () => FiniteSaga<State, Action>
+        finiteSaga: () => FiniteSaga<State, Action, void>
     ) => InfiniteSaga<State, Action>;
     readonly getState: () => Generator<
         InternalPseudoAction,
@@ -158,7 +157,7 @@ function* take<T extends Action, State, Action>(
 }
 
 function* forever<State, Action>(
-    finiteSaga: () => FiniteSaga<State, Action>
+    finiteSaga: () => FiniteSaga<State, Action, void>
 ): InfiniteSaga<State, Action> {
     // Run the finite saga repeatedly.
     for (;;) {
