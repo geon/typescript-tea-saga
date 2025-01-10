@@ -2,7 +2,7 @@
 
 This library makes it possible to write the update parts of [typescript-tea](https://github.com/typescript-tea/core) as imperative code. That makes it easier to do things that requires multiple steps like loading data that depends on other loaded data, or defining the flow of a user interaction through dialogs and wizards.
 
-The library works as an adapter for generators work with typescript-tea. Each time typescript-tea calls its `update`-function, the generator is ran until it "takes" the next action. Any yielded commands or updates to the state are collected and returned to typescript-tea.
+The library uses generators, so that execution can be paused and resumed. Each time typescript-tea calls its `update`-function, the generator is run until it "takes" the next action. Any yielded commands or updates to the state are collected and returned to typescript-tea.
 
 You create the saga with `createSagaInitAndUpdate`. It returns your normal `init`and `update` functions to use with typescript-tea. To the `createSagaInitAndUpdate` function, you pass in 2 props: `init` and `createSaga`.
 
